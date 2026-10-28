@@ -1,6 +1,7 @@
 """Behavior tests for the simulated server monitor (standard library only)."""
 
 import contextlib
+import csv
 import io
 import json
 import random
@@ -10,7 +11,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from main import format_report, monitor_server, save_run_history
+from main import (comparison_rows, export_csv, format_report, iter_monitor,
+                  monitor_server, report_statistics, save_run_history)
 
 
 class MonitorServerTests(unittest.TestCase):
@@ -192,6 +194,17 @@ class MonitorServerTests(unittest.TestCase):
 
 
 class HistoryTests(unittest.TestCase):
+    def test_saved_custom_run_preserves_its_rules_and_statistics(self):
+        report = monitor_server(days=4, ping_values=[25, 75, 210],
+                                healthy_limit=50, critical_limit=200, lag_limit=2)
+        with tempfile.TemporaryDirectory() as directory:
+            path = save_run_history(report, directory)
+            saved = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual((saved["healthy_limit"], saved["critical_limit"], saved["lag_limit"]),
+                         (50, 200, 2))
+        self.assertEqual(saved["highest_ping_ms"], 210)
+        self.assertAlmostEqual(saved["average_ping_ms"], 310 / 3)
+
     def test_each_saved_run_has_a_separate_complete_record_and_readable_log(self):
         with tempfile.TemporaryDirectory() as directory:
             report = monitor_server(days=2, ping_values=[45, 180])
@@ -206,6 +219,169 @@ class HistoryTests(unittest.TestCase):
                 self.assertIn("created_at", record)
                 self.assertEqual(path.with_suffix(".txt").read_text(encoding="utf-8"),
                                  format_report(report) + "\n")
+
+
+class TeachingAndThresholdTests(unittest.TestCase):
+    def test_step_iterator_reads_only_the_next_day_and_returns_a_final_report(self):
+        consumed = []
+
+        def readings():
+            for ping in [40, 150, 320]:
+                consumed.append(ping)
+                yield ping
+            self.fail("Teaching mode read a day after its failure.")
+
+        iterator = iter_monitor(days=7, ping_values=readings())
+        self.assertEqual(consumed, [])
+        for expected_ping, expected_highlight in [(40, "for"), (150, "continue"), (320, "break")]:
+            entry = next(iterator)
+            self.assertEqual(entry["ping_ms"], expected_ping)
+            self.assertEqual(entry["highlight"], expected_highlight)
+            self.assertIsInstance(entry["explanation"], str)
+            self.assertTrue(entry["explanation"].strip())
+            self.assertEqual(len(consumed), entry["day"])
+
+        with self.assertRaises(StopIteration) as stopped:
+            next(iterator)
+        report = stopped.exception.value
+        self.assertEqual(len(report["entries"]), 3)
+        self.assertEqual(report["failure_type"], "critical_ping")
+        self.assertEqual(report["healthy_days"], 1)
+        self.assertTrue(report["stopped_early"])
+        self.assertEqual(consumed, [40, 150, 320])
+
+    def test_last_healthy_step_completes_without_consuming_an_extra_reading(self):
+        def readings():
+            yield 25
+            yield 50
+            self.fail("The iterator requested an unplanned third day.")
+
+        iterator = iter_monitor(days=2, ping_values=readings())
+        self.assertEqual(next(iterator)["day"], 1)
+        self.assertEqual(next(iterator)["day"], 2)
+        with self.assertRaises(StopIteration) as stopped:
+            next(iterator)
+        self.assertEqual(stopped.exception.value["healthy_days"], 2)
+        self.assertFalse(stopped.exception.value["stopped_early"])
+
+    def test_custom_threshold_boundaries_change_classification(self):
+        report = monitor_server(days=5, ping_values=[0, 50, 51, 200, 201],
+                                healthy_limit=50, critical_limit=200, lag_limit=4)
+        self.assertEqual([entry["status"] for entry in report["entries"]],
+                         ["HEALTHY", "HEALTHY", "MINOR LAG", "MINOR LAG", "CRITICAL FAILURE"])
+        self.assertEqual((report["healthy_limit"], report["critical_limit"], report["lag_limit"]),
+                         (50, 200, 4))
+        self.assertIn("200", report["stop_reason"])
+
+    def test_custom_lag_limit_stops_on_the_selected_consecutive_day(self):
+        iterator = iter_monitor(days=5, ping_values=[60, 80],
+                                healthy_limit=50, critical_limit=200, lag_limit=2)
+        self.assertEqual(next(iterator)["action"], "continue")
+        final_entry = next(iterator)
+        self.assertEqual(final_entry["status"], "ESCALATED FAILURE")
+        self.assertEqual(final_entry["highlight"], "break")
+        with self.assertRaises(StopIteration) as stopped:
+            next(iterator)
+        self.assertEqual(stopped.exception.value["max_lag_streak"], 2)
+        self.assertEqual(stopped.exception.value["critical_days"], 1)
+
+    def test_invalid_thresholds_are_rejected(self):
+        cases = [
+            {"healthy_limit": -1}, {"healthy_limit": True}, {"healthy_limit": 10.5},
+            {"critical_limit": False}, {"critical_limit": "300"},
+            {"healthy_limit": 300, "critical_limit": 300},
+            {"healthy_limit": 400, "critical_limit": 300},
+            {"lag_limit": 0}, {"lag_limit": -1}, {"lag_limit": True}, {"lag_limit": 1.5},
+        ]
+        for settings in cases:
+            with self.subTest(settings=settings):
+                with self.assertRaises(ValueError):
+                    monitor_server(days=1, ping_values=[25], **settings)
+
+
+class StatisticsAndExportTests(unittest.TestCase):
+    def test_statistics_include_the_failure_but_exclude_unchecked_readings(self):
+        report = monitor_server(days=5, ping_values=[40, 150, 320, 900, 999])
+        stats = report_statistics(report)
+        self.assertEqual(stats["checked_days"], 3)
+        self.assertEqual(stats["average_ping_ms"], 170)
+        self.assertEqual(stats["highest_ping_ms"], 320)
+        self.assertEqual(stats["max_lag_streak"], 1)
+        self.assertAlmostEqual(stats["healthy_rate"], 100 / 3)
+        self.assertEqual(report["average_ping_ms"], 170)
+        self.assertEqual(report["highest_ping_ms"], 320)
+
+    def test_empty_partial_report_has_no_ping_statistics(self):
+        stats = report_statistics({"entries": []})
+        self.assertEqual(stats["checked_days"], 0)
+        self.assertIsNone(stats["average_ping_ms"])
+        self.assertIsNone(stats["highest_ping_ms"])
+        self.assertEqual(stats["max_lag_streak"], 0)
+        self.assertEqual(stats["healthy_rate"], 0)
+
+    def test_legacy_saved_report_remains_readable_and_exportable(self):
+        report = monitor_server(days=3, ping_values=[25, 150, 320])
+        for key in ["healthy_limit", "critical_limit", "lag_limit", "average_ping_ms", "highest_ping_ms"]:
+            report.pop(key)
+        for entry in report["entries"]:
+            entry.pop("explanation")
+            entry.pop("highlight")
+        text = format_report(report)
+        self.assertIn("CRITICAL FAILURE", text)
+        self.assertIn("Average ping", text)
+        self.assertIn("Highest ping", text)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "legacy.csv"
+            export_csv(report, path)
+            with path.open(encoding="utf-8", newline="") as saved:
+                row = next(csv.DictReader(saved))
+            self.assertEqual((row["healthy_limit"], row["critical_limit"], row["lag_limit"]),
+                             ("100", "300", "3"))
+
+    def test_csv_contains_only_checked_days_and_their_rule_settings(self):
+        report = monitor_server(days=4, ping_values=[25, 75, 210, 999],
+                                healthy_limit=50, critical_limit=200, lag_limit=3)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "readings.csv"
+            export_csv(report, path)
+            with path.open(encoding="utf-8", newline="") as saved:
+                reader = csv.DictReader(saved)
+                rows = list(reader)
+                self.assertEqual(reader.fieldnames,
+                                 ["day", "ping_ms", "status", "lag_streak", "action",
+                                  "healthy_limit", "critical_limit", "lag_limit"])
+        self.assertEqual([row["day"] for row in rows], ["1", "2", "3"])
+        self.assertEqual(rows[-1]["ping_ms"], "210")
+        self.assertEqual(rows[-1]["action"], "break")
+        self.assertTrue(all((row["healthy_limit"], row["critical_limit"], row["lag_limit"]) ==
+                            ("50", "200", "3") for row in rows))
+
+    def test_empty_csv_still_has_a_header(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "empty.csv"
+            export_csv({"entries": []}, path)
+            with path.open(encoding="utf-8", newline="") as saved:
+                reader = csv.DictReader(saved)
+                self.assertEqual(list(reader), [])
+                self.assertIn("ping_ms", reader.fieldnames)
+
+    def test_comparison_shows_differences_in_results_and_thresholds(self):
+        first = monitor_server(days=4, ping_values=[25, 75, 210],
+                               healthy_limit=50, critical_limit=200, lag_limit=3)
+        second = monitor_server(days=2, ping_values=[30, 40],
+                                healthy_limit=100, critical_limit=300, lag_limit=4)
+        rows = comparison_rows(first, second)
+        self.assertTrue(rows)
+        self.assertTrue(all(len(row) == 3 and all(isinstance(value, str) for value in row)
+                            for row in rows))
+        metrics = {row[0].casefold(): row[1:] for row in rows}
+        for label, a, b in [("healthy limit", "50", "100"),
+                            ("critical limit", "200", "300"), ("lag limit", "3", "4"),
+                            ("highest ping", "210", "40")]:
+            self.assertIn(a, metrics[label][0])
+            self.assertIn(b, metrics[label][1])
+        self.assertNotEqual(*metrics["average ping"])
+        self.assertTrue(any("critical" in value.casefold() for row in rows for value in row[1:]))
 
 
 class CommandLineTests(unittest.TestCase):
@@ -274,6 +450,41 @@ class CommandLineTests(unittest.TestCase):
             self.assertEqual(result.returncode, 2)
             self.assertIn("--seed is for random mode", result.stderr)
             self.assertFalse((Path(directory) / "logs").exists())
+
+    def test_custom_cli_rules_are_saved_and_csv_matches_the_run(self):
+        with tempfile.TemporaryDirectory() as directory:
+            csv_path = Path(directory) / "run.csv"
+            result = subprocess.run(
+                [sys.executable, str(self.script), "--days", "3", "--seed", "42",
+                 "--healthy-limit", "50", "--critical-limit", "200", "--lag-limit", "2",
+                 "--csv-file", str(csv_path)],
+                cwd=directory, capture_output=True, text=True, timeout=10,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            records = list((Path(directory) / "logs" / "history").glob("*.json"))
+            self.assertEqual(len(records), 1)
+            report = json.loads(records[0].read_text(encoding="utf-8"))
+            self.assertEqual((report["healthy_limit"], report["critical_limit"], report["lag_limit"]),
+                             (50, 200, 2))
+            with csv_path.open(encoding="utf-8", newline="") as saved:
+                rows = list(csv.DictReader(saved))
+            self.assertEqual(len(rows), len(report["entries"]))
+            self.assertEqual([int(row["ping_ms"]) for row in rows],
+                             [entry["ping_ms"] for entry in report["entries"]])
+
+    def test_invalid_custom_cli_rules_create_no_output(self):
+        for settings in [["--healthy-limit", "300", "--critical-limit", "100"],
+                         ["--lag-limit", "0"]]:
+            with self.subTest(settings=settings):
+                with tempfile.TemporaryDirectory() as directory:
+                    result = subprocess.run(
+                        [sys.executable, str(self.script), *settings, "--csv-file", "run.csv"],
+                        cwd=directory, capture_output=True, text=True, timeout=10,
+                    )
+                    self.assertEqual(result.returncode, 2)
+                    self.assertIn("error:", result.stderr)
+                    self.assertFalse((Path(directory) / "logs").exists())
+                    self.assertFalse((Path(directory) / "run.csv").exists())
 
 
 if __name__ == "__main__":

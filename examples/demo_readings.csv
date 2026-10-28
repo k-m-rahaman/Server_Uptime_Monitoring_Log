@@ -1,0 +1,7 @@
+day,ping_ms,status,lag_streak,action,healthy_limit,critical_limit,lag_limit
+1,45,HEALTHY,0,record,100,300,3
+2,160,MINOR LAG,1,continue,100,300,3
+3,72,HEALTHY,0,record,100,300,3
+4,100,HEALTHY,0,record,100,300,3
+5,300,MINOR LAG,1,continue,100,300,3
+6,301,CRITICAL FAILURE,0,break,100,300,3

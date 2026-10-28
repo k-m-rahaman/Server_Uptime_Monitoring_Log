@@ -18,6 +18,8 @@ Minor lag days       : 2
 Failures             : 1
 Days not evaluated   : 3
 Healthy check rate   : 25.00%
+Average ping         : 191.25 ms
+Highest ping         : 280 ms
 Longest lag streak   : 3
 Healthy check rate = healthy days / checked days x 100.
 

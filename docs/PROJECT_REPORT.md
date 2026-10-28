@@ -1,116 +1,185 @@
-# Server Uptime Monitoring Log — Pulse
+# Pulse — Server Uptime Monitoring Log
 
-**Course:** Third-semester AIML, Python fundamentals mini project
+**Python Project | Semester 3 | Section J | Group 1**
 
-**Language:** Python 3.10+ with Tkinter; standard library only
+## Group members
 
-**Student details:** Add your name, roll number, section, institution and faculty details to your submission copy.
+1. Kazi Mustafijur Rhaman
+2. Anisha Akhtar
+3. Koyel Basu
+4. Suraiya Yeasmin
 
 ## Abstract
 
-Pulse simulates daily server ping readings and classifies them as healthy, minor lag or failure. A for loop represents planned days. Random integers model response times for three network scenarios. Continue bypasses healthy processing after minor lag. Break stops the loop after an immediate critical reading or three consecutive lag spikes. A Tkinter dashboard displays charts, an event log, an exact stop reason and saved run history.
+Pulse is a Python desktop and command-line project that simulates daily server health. A for loop represents planned days, random integers model ping response times, continue bypasses healthy processing after minor lag, and break halts monitoring on failure. The dark Tkinter dashboard shows charts, a colour-coded event log and an exact stop reason.
 
-## Objective and outcome
+The project includes a lazy step-by-step teaching mode, configurable health thresholds, checked-day statistics, saved-run comparison and CSV export. These additions support classroom explanation while keeping the original Python control-flow objective central.
 
-Use for loops and random number generation to simulate daily server ping statuses, continue for minor lag spikes, and break for critical failures. The expected outcome is an accurate simulated log that stops evaluating later days when a failure rule is met.
+## Objective and expected outcome
 
-Scenario selection, consecutive-lag escalation and the dashboard extend the same control-flow topic without requiring machine learning or real networking.
+Use for loops and random number generation to simulate daily server ping statuses, continue to bypass minor lag spikes, and break to halt checks on a critical failure.
 
-## Architecture and concepts
+The expected outcome is an accurate simulated log that classifies each checked day, advances after ordinary lag, and never evaluates later days after a failure. Completed results can be inspected, compared and exported for a report.
+
+## Tools and architecture
 
 | Component | Purpose |
 | --- | --- |
-| main.py | Shared simulation, report formatting, history persistence and terminal interface. |
-| gui.py | Tkinter controls, charts, table, presentation playback and history viewer. |
-| random.Random | Local seeded random integers, independent of global random state. |
-| Lists and dictionaries | Per-day entries and final summary fields. |
-| pathlib, json, datetime, uuid | Separate timestamped text and JSON records. |
-| unittest | Behaviour, terminal, persistence and optional desktop integration checks. |
-| GitHub Actions | Checks across Python versions and Windows desktop integration. |
+| Python 3.10+ | Application language. |
+| Tkinter | Desktop dashboard and teaching controls. |
+| random.Random | Seeded, independent random generation. |
+| main.py | Shared generator, summaries, history, comparison, CSV and CLI. |
+| gui.py | Dashboard, charts, settings and history interaction. |
+| Lists and dictionaries | Daily entries and final reports. |
+| json, pathlib, datetime and uuid | Separate timestamped run records. |
+| csv | Spreadsheet-ready export of checked days. |
+| unittest | Behaviour and integration checks. |
+| Git and GitHub Actions | Version control and automated validation. |
 
-The GUI calls monitor_server() from main.py. It does not duplicate the health-classification rules. Python calculates the simulation; Tkinter's after() method then reveals the resulting rows without blocking the interface.
+All application dependencies are from the Python standard library. Tkinter and a graphical environment are needed for the dashboard; no pip packages are required.
 
-## Rules
+## Simulation rules
 
-| Condition | Classification and control flow |
-| --- | --- |
-| 0–100 ms | Healthy; reset lag streak and complete the iteration. |
-| 101–300 ms, streak 1 or 2 | Minor lag; record and continue. |
-| Third consecutive 101–300 ms reading | Escalated failure; record and break. |
-| Above 300 ms | Immediate critical failure; record and break. |
+The default healthy limit is 100 ms, critical limit is 300 ms and consecutive-lag limit is 3.
 
-Critical ping is checked first because it also exceeds the ordinary lag threshold. A healthy day resets the streak. The third consecutive lag day is counted as a failure, not also as a minor-lag day. Healthy + minor lag + failure therefore equals the number of performed checks.
+| Condition | Result | Control flow |
+| --- | --- | --- |
+| Ping at or below healthy limit | Healthy; reset the lag streak. | Normal processing. |
+| Ping above healthy limit but not above critical limit, before the lag limit | Minor lag; increase the streak. | Continue. |
+| Consecutive lag streak reaches its limit | Escalated failure. | Break. |
+| Ping above critical limit | Immediate critical failure. | Break. |
 
-## Scenarios
+A critical ping is checked first because it also exceeds the ordinary lag threshold. A healthy day resets the streak. The terminal lag reading that reaches the escalation limit counts as a failure rather than also counting as ordinary minor lag. Therefore, category counts sum to performed checks.
+
+Custom thresholds must be whole numbers satisfying 0 ≤ healthy limit < critical limit, with a consecutive-lag limit of at least 1. Thresholds change classification but do not change the selected random scenario's range.
+
+## Network scenarios
 
 | Network | Inclusive random range |
 | --- | --- |
-| Stable | 20–140 ms |
-| Busy | 60–320 ms |
-| Unstable | 80–450 ms |
+| Stable Network | 20–140 ms |
+| Busy Network | 60–320 ms |
+| Unstable Network | 80–450 ms |
 
-Readings are uniform within the selected range. Stable networks can still fail through repeated lag. These teaching scenarios are not calibrated network models. Fixed demonstrations intentionally bypass random generation and scenario ranges.
+Readings are uniform within the chosen range. A stable scenario can still fail through repeated lag. Fixed demos bypass random generation and scenario ranges.
+
+## Shared lazy generator
+
+The central generator is iter_monitor(). Its for loop obtains and processes one reading when advanced. It yields a daily entry and eventually returns the final report. monitor_server() consumes the same generator to provide a complete terminal result.
+
+The dashboard teaching mode advances this generator using Next Day. This is actual incremental execution, not playback of a previously completed calculation. The generator does not consume future input before the next step and never consumes another reading after a terminal failure.
+
+Each entry includes its day, ping, status, lag streak, action, explanation and highlighted control-flow statement.
 
 ## Algorithm
 
-1. Read and validate the days, scenario, optional seed and mode.
-2. Initialize entries, counters and the consecutive-lag streak.
-3. Iterate from day 1 through the requested last day using a for loop.
-4. Generate one random ping or obtain one fixed demo reading.
-5. If ping exceeds 300 ms, record the reason and critical failure, then break.
-6. If ping exceeds 100 ms, increase the lag streak. On the third consecutive lag, record escalation and break. Otherwise record minor lag and continue.
-7. Otherwise reset the streak and record a healthy day.
-8. Summarize performed checks, category counts, unevaluated days, maximum lag streak and healthy-check rate.
-9. Display the result and save a separate historical record and text report.
+1. Read and validate days, scenario, seed and thresholds.
+2. Initialize entries, status counts and the consecutive-lag streak.
+3. Iterate over requested days with a for loop.
+4. Obtain one random ping or fixed demonstration reading.
+5. If the ping exceeds the critical limit, record a critical failure, yield the entry and exit with break.
+6. If the ping exceeds the healthy limit, increase the streak:
+   - If the streak reaches the configured lag limit, record escalation, yield the entry and break.
+   - Otherwise record minor lag, yield the entry and continue.
+7. Otherwise reset the streak, record a healthy day and yield its entry.
+8. Summarize only the checks actually performed.
+9. Save the completed run and provide text or CSV output when requested.
 
-Break exits the loop; summary code after the loop still executes. Continue ends only the current iteration and bypasses healthy-day processing.
+The summary still appears after break because it is outside the monitoring loop. Continue skips the remaining healthy-day processing within one iteration.
 
-## Interface and execution
+## Dashboard and teaching features
 
-Start with python gui.py or double-click run_gui.bat on Windows. Python 3.10+ with Tkinter and a graphical environment is required. No pip packages are needed. A 1280 × 800 display is recommended.
+The original dark dashboard layout contains scenario controls, four summary cards, a ping chart, distribution bars, a daily event table and a status area.
 
-The sidebar controls scenario, days (1–365), optional seed and run mode. Fixed demos use seven planned days and disable irrelevant random settings. The dashboard shows counters, a ping chart, threshold lines, distribution bars, a colour-coded event table, exact stop reason and progress.
+- **Step-by-step teaching:** Enable the option, start a run and use Next Day to advance. A teaching pane highlights for, continue or break and explains the current decision.
+- **Thresholds...:** Set healthy, critical and consecutive-lag limits, or use Reset defaults.
+- **Statistics:** View average ping, highest ping and longest lag streak for checked days.
+- **History and Compare:** Select exactly two saved runs with Ctrl+click and compare their settings, counts, statistics and stop reasons side by side.
+- **Export CSV:** Save processed daily rows and the thresholds used.
+- **Finish playback:** Complete remaining checks immediately under the same rules.
+- **Expand log:** Hide chart panels temporarily to make more event rows visible.
+- **Export log:** Save a readable text report.
 
-Finish playback skips the presentation delay without changing the result. Expand log temporarily hides charts to show more rows. History opens saved runs, and Export log writes a selected text file.
+Fixed demos plan seven days. The dashboard initially plans fourteen days for random mode and supports 1–365 days. The optional seed repeats random results when scenario, days and thresholds also match.
 
-Terminal commands:
+## Execution
+
+On Windows, open the project folder and double-click run_gui.bat. In a terminal:
+
+    python gui.py
+
+In VS Code, select File → Open Folder, choose the folder containing main.py and gui.py, open Terminal → New Terminal, and run:
+
+    .\run_gui.bat
+
+Terminal examples:
 
     python main.py --scenario busy --days 14 --seed 42
     python main.py --demo
     python main.py --demo-lag
+    python main.py --scenario busy --days 14 --seed 42 --healthy-limit 120 --critical-limit 350 --lag-limit 4
+    python main.py --scenario busy --csv-file logs/run.csv
 
-## Demonstration results
+The terminal defaults to seven days on a stable network. A seed is used only with random mode. Demos support at most seven requested days. Changing thresholds can change fixed-demo outcomes.
 
-The critical-failure demo uses 45, 160, 72, 100, 300, 301, 55 ms. Day 6 fails immediately; day 7 is never evaluated.
+## Demonstration results with default thresholds
 
-The escalation demo uses 65, 180, 240, 280, 55, 80, 90 ms. Days 2 and 3 continue after lag. Day 4 is the third consecutive lag, so monitoring stops and days 5–7 are not evaluated.
+### Immediate critical failure
+
+The readings are 45, 160, 72, 100, 300, 301 and 55 ms. Day 6 exceeds 300 ms and ends the loop. Day 7 is never checked.
+
+### Repeated-lag escalation
+
+The readings are 65, 180, 240, 280, 55, 80 and 90 ms. Days 2 and 3 record lag and continue. Day 4 is the third consecutive lag reading and ends the loop. Days 5–7 are not checked.
 
 | Demo | Checked | Healthy | Minor lag | Failures | Unevaluated | Healthy check rate |
 | --- | --- | --- | --- | --- | --- | --- |
 | Critical failure | 6 | 3 | 2 | 1 | 1 | 50% |
 | Lag escalation | 4 | 1 | 2 | 1 | 3 | 25% |
 
-See the full [critical-failure log](../examples/demo_output.txt) and [escalation log](../examples/lag_escalation_output.txt).
+Full logs: [critical failure](../examples/demo_output.txt) and [lag escalation](../examples/lag_escalation_output.txt).
 
-## Calculations and persistence
+## Statistics
 
-Healthy check rate = healthy days / checked days × 100.
+- Average ping = sum of checked ping values / number of checked days.
+- Highest ping = maximum among checked readings.
+- Longest lag streak = highest consecutive-lag count observed, including a terminal escalated-lag reading.
+- Healthy check rate = healthy days / checked days × 100.
 
-Only performed checks enter the calculation. A failure on the final requested day counts as a failure, but stopped_early is false because no remaining days were prevented. The original critical_days report field now counts both kinds of terminal failure.
+No reading after failure enters these calculations. Before any check, average and highest ping have no value. A failure on the final requested day is still a failure, but stopped_early is false because no remaining days were prevented.
 
-Each completed run receives a unique timestamped JSON record and text report in logs/history/. Records store entries, scenario, seed, source, counters and stop reason. The GUI shows the latest 100 valid records and skips damaged files. Generated history remains local and is excluded from Git.
+The critical_days report field counts both immediate critical failure and escalated failure for compatibility with the initial project.
 
-The terminal additionally updates logs/server_uptime.log by default. The optional latest-log destination may be overwritten, while separate historical records are preserved.
+## Persistence, comparison and export
+
+Each completed run receives a unique timestamped JSON record and readable text report under logs/history/. The record includes thresholds, seed, scenario, source, entries, statistics, counters and the stop reason.
+
+The history viewer displays the latest 100 valid records. Earlier records without threshold or statistics fields remain usable: original threshold defaults are assumed and statistics can be derived from their checked entries. Damaged records are skipped so other runs remain accessible.
+
+Comparisons show two saved runs side by side. Differences in checked counts may result from different settings or stopping conditions; the comparison does not invent readings for unevaluated days.
+
+CSV export contains these columns:
+
+    day,ping_ms,status,lag_streak,action,healthy_limit,critical_limit,lag_limit
+
+There is one row per processed day. Separate historical records remain preserved when the latest terminal text-log file is replaced. Generated logs and history remain local and are excluded from Git.
 
 ## Testing
 
-Run python -m unittest discover -s tests -v. Optional desktop tests require RUN_GUI_TESTS=1 and a graphical environment.
+Run:
 
-Checks cover 100/101/300/301 ms boundaries, continuing after lag, immediate and escalated stopping without reading later values, healthy-day streak reset, scenario ranges, seeded repeatability, separate saved records, terminal output and validation, and desktop integration. GUI checks cover summaries, charts, tables, history, repeated runs and supported window layout.
+    python -m unittest discover -s tests -v
+
+Optional desktop integration checks require a graphical environment. In Windows PowerShell:
+
+    $env:RUN_GUI_TESTS = "1"
+    python -m unittest discover -s tests -v
+
+Tests cover default and custom boundaries, input validation, lazy stepping, continuation and stopping, checked-only statistics, seeded repeatability, historical compatibility, side-by-side comparison, CSV content and GUI integration. GitHub Actions also checks the project across Python versions and on Windows.
 
 ## Limitations
 
-Readings are generated locally. No real server is contacted, no real days pass, and no AI model is trained or used. High ping and repeated lag are treated as failures only by the defined teaching rules. Healthy-check percentage is not measured real-world uptime. Recovery checks, retries and real alerts are outside this project.
+The project generates readings locally. It makes no real network ping requests, does not wait actual days and does not train or run an AI model. Its thresholds are teaching rules, and healthy-check percentage is not real-world server uptime. Recovery checks, retries and external alerts are outside its scope.
 
 ## Viva preparation
 
@@ -118,22 +187,28 @@ Readings are generated locally. No real server is contacted, no real days pass, 
 
 **What does continue do?** It bypasses healthy processing after ordinary minor lag and advances to the next day.
 
-**What does break do?** It abandons all remaining checks immediately after a failure.
+**What does break do?** It exits the loop and abandons later checks after failure.
 
-**Why check critical ping first?** A reading over 300 is also over 100, so the stricter rule must have priority.
+**Why check critical ping first?** A reading above the critical limit is also above the healthy limit, so the stricter rule must have priority.
 
 **Why reset the streak after a healthy day?** The escalation rule concerns consecutive lag, not the total number of lag days.
 
-**What happens at exactly 100 and 300 ms?** 100 is healthy. 300 is lag and can escalate if it is the third consecutive lag. 301 fails immediately.
+**How does teaching mode stay within the topic?** It advances the same Python for loop one iteration at a time and shows the actual continue or break decision.
 
-**Why use a seed?** It repeats the same random simulation for debugging and comparisons.
+**Why are thresholds configurable?** They demonstrate how changing conditions changes control flow while leaving the algorithm's structure intact.
 
-**Why fixed demos?** An uncontrolled random run may not show every required case.
+**Why calculate statistics from checked days only?** Later days were not processed and have no observed simulated result.
 
-**Does the GUI change the loop logic?** No. It calls the shared Python simulation and presents its results.
+**Why save settings with CSV and history?** The numbers can be interpreted and compared only when the rules used to classify them are known.
 
-**What makes the project distinctive?** Scenario comparisons, streak-based escalation, precise stop explanations, charts and persistent run history extend the original loop-control objective.
+**What is the purpose of a seed?** It makes random runs repeatable for demonstrations and comparisons.
 
 ## Submission checklist
 
-Fill in student details, run both demos, explain both failure rules, point to for/continue/break in main.py, show saved history, run the tests, and submit the GitHub URL with any faculty-requested screenshots.
+1. Introduce the project as the Semester 3, Section J, Group 1 Python project.
+2. Present the four group members.
+3. Demonstrate default critical and escalation failures.
+4. Use Next Day to explain for, continue and break.
+5. Change thresholds and explain the resulting difference.
+6. Show checked-day statistics, compare two saved runs and export CSV.
+7. Run the tests and submit the repository link with any required faculty screenshots.

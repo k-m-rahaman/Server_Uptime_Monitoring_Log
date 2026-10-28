@@ -19,9 +19,11 @@ jobs:
       - name: Run unit tests
         run: python -m unittest discover -s tests -v
       - name: Run classroom demo
-        run: python main.py --demo
+        run: python main.py --demo --csv-file logs/demo.csv
       - name: Run lag escalation demo
         run: python main.py --demo-lag
+      - name: Run custom threshold simulation
+        run: python main.py --scenario busy --days 14 --seed 42 --healthy-limit 120 --critical-limit 350 --lag-limit 4
 
   desktop:
     runs-on: windows-latest

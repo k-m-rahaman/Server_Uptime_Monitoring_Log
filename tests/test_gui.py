@@ -32,12 +32,10 @@ class DesktopTests(unittest.TestCase):
         self.assertFalse(self.app.running)
 
     def test_lag_demo_updates_table_chart_summary_and_saved_history(self):
-        self.run_demo("Demo: repeated lag")
+        self.run_demo("Lag escalation demo")
         self.assertEqual(len(self.app.table.get_children()), 4)
-        self.assertEqual([value.get() for value in self.app.stats.values()], ["4", "1", "2", "1"])
+        self.assertEqual([value.get() for value in self.app.stats.values()], ["04", "01", "02", "01"])
         self.assertIn("3 consecutive", self.app.reason.get())
-        self.app.notebook.select(self.app.charts)
-        self.root.update()
         self.assertGreater(len(self.app.timeline.find_all()), 5)
         self.assertEqual(str(self.app.export_button["state"]), "normal")
         paths = list(Path(self.directory.name).glob("*.json"))
@@ -45,9 +43,9 @@ class DesktopTests(unittest.TestCase):
         self.assertEqual(json.loads(paths[0].read_text())["failure_type"], "lag_escalation")
 
     def test_rerunning_replaces_current_table_and_preserves_both_history_records(self):
-        self.run_demo("Demo: critical failure")
+        self.run_demo("Critical failure demo")
         self.assertEqual(len(self.app.table.get_children()), 6)
-        self.run_demo("Demo: repeated lag")
+        self.run_demo("Lag escalation demo")
         self.assertEqual(len(self.app.table.get_children()), 4)
         self.assertEqual(len(list(Path(self.directory.name).glob("*.json"))), 2)
 
@@ -62,40 +60,18 @@ class DesktopTests(unittest.TestCase):
                 self.assertLessEqual(top + widget.winfo_height(), self.root.winfo_height())
         self.assertGreaterEqual(self.app.table.winfo_height(), 85)
 
-    def test_results_and_charts_are_available_as_separate_tabs(self):
-        self.assertEqual(self.app.notebook.select(), str(self.app.log_box))
+    def test_expand_log_makes_more_rows_visible_and_can_restore_charts(self):
+        before = self.app.table.winfo_height()
         self.app.toggle_charts()
         self.root.update()
-        self.assertEqual(self.app.notebook.select(), str(self.app.charts))
+        self.assertGreater(self.app.table.winfo_height(), before)
+        self.assertFalse(self.app.charts_visible)
         self.app.toggle_charts()
         self.root.update()
-        self.assertEqual(self.app.notebook.select(), str(self.app.log_box))
-
-    def test_selecting_a_day_explains_its_python_control_flow(self):
-        self.run_demo("Demo: critical failure")
-        for day, expected in [(2, "continue"), (3, "reset"), (6, "break")]:
-            with self.subTest(day=day):
-                self.app.table.selection_set(str(day))
-                self.root.update()
-                self.assertIn(f"Day {day}:", self.app.detail.get())
-                self.assertIn(expected, self.app.detail.get())
-
-    def test_recommended_demo_and_optional_random_seed_controls(self):
-        self.assertEqual(self.app.mode.get(), "Demo: critical failure")
-        self.assertEqual(str(self.app.day_box["state"]), "disabled")
-        self.app.mode.set("Random readings")
-        self.app.update_setup()
-        self.assertEqual(str(self.app.day_box["state"]), "normal")
-        self.assertEqual(self.app.scenario.get(), "Stable Network")
-        self.app.seed_enabled.set(True)
-        self.app.toggle_seed()
-        self.app.seed.set("42")
-        self.app.start_run()
-        self.app.finish_playback()
-        self.assertEqual(self.app.report["seed"], 42)
+        self.assertTrue(self.app.charts_visible)
 
     def test_history_window_opens_saved_log(self):
-        self.run_demo("Demo: repeated lag")
+        self.run_demo("Lag escalation demo")
         self.app.show_history()
         self.root.update()
         from tkinter import Toplevel, Text

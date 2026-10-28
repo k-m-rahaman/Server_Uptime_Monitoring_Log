@@ -12,11 +12,9 @@ Requirements: **Python 3.10+ with Tkinter**. No pip packages are required. Tkint
 
     python -m tkinter
 
-The Windows launchers try py, python and an available Codex Python runtime. A display of 1280 × 800 or larger is recommended. The **Daily results** tab shows the main log; **Charts & summary** contains the optional graphs.
+The Windows launchers try py, python and an available Codex Python runtime. A display of 1280 × 800 or larger is recommended. **Expand log** gives the event table more space on a smaller display.
 
 ## Dashboard features
-
-The interface opens with the recommended demo, uses a light theme and numbered steps, and explains each selected day in plain language. Choose **Random readings** for custom settings; tick **Repeat the same random run** only if you want to enter a seed.
 
 - Stable, busy and unstable network scenarios.
 - Adjustable simulated days and an optional random seed.
@@ -26,14 +24,14 @@ The interface opens with the recommended demo, uses a light theme and numbered s
 - Exact stop reason and count of unevaluated days.
 - Separate saved run history, a history viewer and text export.
 
-Rows play back briefly for presentation. **Show all results now** reveals the complete result immediately. The underlying Python loop has already made every decision.
+Rows play back briefly for presentation. **Finish playback** reveals the complete result immediately. The underlying Python loop has already made every decision.
 
 ## Classroom demonstration
 
-1. Select **Demo: critical failure** and click **Run simulation**. Minor lag continues; the 301 ms reading on day 6 stops monitoring. Day 7 is never evaluated.
-2. Select **Demo: repeated lag** and run again. The first two consecutive lag days continue; the third triggers a failure on day 4.
-3. Select any day in **Daily results** to read why the program continued or stopped. Open **Charts & summary** for graphs, **Saved runs** for history, or **Save log...** for a text report.
-4. Choose **Random readings** to compare network conditions. The same scenario, seed and days reproduce the same results.
+1. Select **Critical failure demo** and click **Run simulation**. Minor lag continues; the 301 ms reading on day 6 stops monitoring. Day 7 is never evaluated.
+2. Select **Lag escalation demo** and run again. The first two consecutive lag days continue; the third triggers a failure on day 4.
+3. Use **Expand log**, **History** and **Export log** to inspect the results.
+4. Choose **Random scenario** to compare network conditions. The same scenario, seed and days reproduce the same results.
 
 ## Simulation rules
 
@@ -69,7 +67,7 @@ Default: 7 simulated days on a stable network. Days must be positive; the dashbo
 
 The latest terminal report is written to logs/server_uptime.log by default. Every completed terminal or dashboard run also gets a unique timestamped JSON record and text report under logs/history/. The GUI uses the project folder; terminal paths are relative to your working directory.
 
-History remains on your computer and is excluded from Git. The selected latest-log file can be replaced; historical records are preserved separately. The Saved runs window shows the latest 100 valid records. **Save log...** saves the current GUI report to a chosen text file.
+History remains on your computer and is excluded from Git. The selected latest-log file can be replaced; historical records are preserved separately. The history viewer shows the latest 100 valid records. **Export log** saves the current GUI report to a chosen text file.
 
 ## Expected demo results
 

@@ -69,9 +69,9 @@ Break exits the loop; summary code after the loop still executes. Continue ends 
 
 Start with python gui.py or double-click run_gui.bat on Windows. Python 3.10+ with Tkinter and a graphical environment is required. No pip packages are needed. A 1280 × 800 display is recommended.
 
-The sidebar first asks for a run mode, then shows its settings. The critical-failure demo is selected for a predictable first run. Random mode enables scenario and days (1–365); the optional repeat-number field appears only when requested. Fixed demos use seven planned days and disable irrelevant random settings. The dashboard shows counters, a ping chart, threshold lines, distribution bars, a colour-coded event table, exact stop reason and progress.
+The sidebar controls scenario, days (1–365), optional seed and run mode. Fixed demos use seven planned days and disable irrelevant random settings. The dashboard shows counters, a ping chart, threshold lines, distribution bars, a colour-coded event table, exact stop reason and progress.
 
-Show all results now skips the presentation delay without changing the result. Daily results is the default tab, and selecting a row explains its decision. Charts & summary contains the graphs. Saved runs opens history, and Save log... writes a selected text file.
+Finish playback skips the presentation delay without changing the result. Expand log temporarily hides charts to show more rows. History opens saved runs, and Export log writes a selected text file.
 
 Terminal commands:
 

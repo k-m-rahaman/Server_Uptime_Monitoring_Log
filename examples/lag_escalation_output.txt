@@ -1,0 +1,29 @@
+SERVER UPTIME MONITORING LOG
+====================================================================
+Simulation only: one generated ping per day; no real server contacted.
+Scenario: Busy Network | Readings: fixed demo
+Healthy: 0-100 ms | Minor lag: 101-300 ms | Critical: above 300 ms
+Extra failure rule: 3 consecutive lag spikes trigger escalation.
+--------------------------------------------------------------------
+Day 001 |  65 ms | HEALTHY           | server healthy | lag streak: 0
+Day 002 | 180 ms | MINOR LAG         | continue: skip healthy processing | lag streak: 1
+Day 003 | 240 ms | MINOR LAG         | continue: skip healthy processing | lag streak: 2
+Day 004 | 280 ms | ESCALATED FAILURE | break: stop monitoring | lag streak: 3
+--------------------------------------------------------------------
+SUMMARY
+Requested days       : 7
+Days checked         : 4
+Healthy days         : 1
+Minor lag days       : 2
+Failures             : 1
+Days not evaluated   : 3
+Healthy check rate   : 25.00%
+Longest lag streak   : 3
+Healthy check rate = healthy days / checked days x 100.
+
+CHECK DISTRIBUTION (# is approximately one check; capped at 25)
+Healthy    #                         1
+Minor lag  ##                        2
+Failure    #                         1
+Stop reason: Day 4: 3 consecutive minor lag spikes triggered escalation.
+This sample-based simulation does not measure real server uptime.

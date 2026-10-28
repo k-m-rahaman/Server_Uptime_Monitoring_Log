@@ -1,154 +1,135 @@
-# Server Uptime Monitoring Log
+# Pulse — Server Uptime Monitoring Log
 
-A third-semester AIML Python mini project that simulates one server ping reading per day. It demonstrates **`for` loops**, **random number generation**, **`continue`**, and **`break`** through a readable server-health log.
+A third-semester AIML Python mini project with a desktop dashboard and terminal interface. It demonstrates **for loops, random numbers, continue and break**. Both interfaces use the same Python simulation.
 
-This is a simulation: it does not contact a server or wait for real days to pass. It does not use a machine-learning model.
+## Start the interface
 
-## Objective
+On Windows, double-click **run_gui.bat**, or run this in the project folder:
 
-Generate daily ping statuses, skip the remaining processing for a minor lag spike using `continue`, and stop the monitoring loop on a critical failure using `break`.
+    python gui.py
 
-## Requirements
+Requirements: **Python 3.10+ with Tkinter**. No pip packages are required. Tkinter is normally included with the official Windows Python installer. On Linux, install your distribution's Tkinter package if needed, such as python3-tk on Debian/Ubuntu. Check availability with:
 
-- Python 3.10 or later
-- A terminal or an editor such as VS Code
-- No third-party packages
+    python -m tkinter
 
-## Run the project
+The Windows launchers try py, python and an available Codex Python runtime. A display of 1280 × 800 or larger is recommended. **Expand log** gives the event table more space on a smaller display.
 
-Open a terminal in the project folder and run:
+## Dashboard features
 
-```bash
-python main.py
-```
+- Stable, busy and unstable network scenarios.
+- Adjustable simulated days and an optional random seed.
+- Two fixed classroom demos for immediate failure and repeated-lag escalation.
+- Colour-coded daily log showing ping, status, lag streak and loop action.
+- Ping chart with threshold lines and a status-distribution summary.
+- Exact stop reason and count of unevaluated days.
+- Separate saved run history, a history viewer and text export.
 
-On Windows, use `py` instead of `python` if that is how Python is installed. You can also double-click `run_demo.bat` to launch the demonstration. The launcher checks `py`, `python`, and an available Codex Python runtime.
+Rows play back briefly for presentation. **Finish playback** reveals the complete result immediately. The underlying Python loop has already made every decision.
 
-For a repeatable classroom demonstration:
+## Classroom demonstration
 
-```bash
-python main.py --demo
-```
+1. Select **Critical failure demo** and click **Run simulation**. Minor lag continues; the 301 ms reading on day 6 stops monitoring. Day 7 is never evaluated.
+2. Select **Lag escalation demo** and run again. The first two consecutive lag days continue; the third triggers a failure on day 4.
+3. Use **Expand log**, **History** and **Export log** to inspect the results.
+4. Choose **Random scenario** to compare network conditions. The same scenario, seed and days reproduce the same results.
 
-For a random simulation with a chosen number of days:
+## Simulation rules
 
-```bash
-python main.py --days 14
-```
-
-For a repeatable random run, supply a seed:
-
-```bash
-python main.py --days 14 --seed 42
-```
-
-Save the report to a custom location:
-
-```bash
-python main.py --demo --log-file logs/classroom_demo.log
-```
-
-The report is printed in the terminal and written to `logs/server_uptime.log` by default. Each run replaces the selected log file. A simulated critical failure is an expected result of the program; the summary identifies the failure and the unprocessed days.
-
-Use `python main.py --help` to see the command-line options. `--days` must be a positive integer. Demo mode supports at most seven days. Use `--seed` with random mode; it cannot be combined with `--demo`.
-
-## Status rules
-
-| Ping value | Status | Action |
+| Condition | Status | Action |
 | --- | --- | --- |
-| 0–100 ms | `HEALTHY` | Record a healthy day and finish that iteration. |
-| 101–300 ms | `MINOR LAG` | Record the lag, then use `continue` to move to the next day. |
-| Above 300 ms | `CRITICAL FAILURE` | Record the failure, then use `break` to stop the loop immediately. |
+| 0–100 ms | HEALTHY | Record the day and reset the lag streak. |
+| 101–300 ms, streak 1 or 2 | MINOR LAG | Record the warning and continue. |
+| Third consecutive 101–300 ms reading | ESCALATED FAILURE | Record one failure and break. |
+| Above 300 ms | CRITICAL FAILURE | Record one failure and immediately break. |
 
-Random mode generates integer values from **20 to 350 ms**, inclusive. These thresholds are classroom rules selected for this simulation, not universal production monitoring standards.
+The critical-ping check has priority. The third consecutive lag reading counts in the **failure** category, so healthy + minor lag + failure equals the number of checked days. A run has at most one failure.
 
-## Demo results
+| Scenario | Inclusive random ping range |
+| --- | --- |
+| Stable Network | 20–140 ms |
+| Busy Network | 60–320 ms |
+| Unstable Network | 80–450 ms |
 
-Demo mode supplies these readings in order:
+Readings are uniform within each range. A stable scenario can still fail through consecutive lag. Fixed demos bypass random generation and scenario ranges. These are classroom rules, not universal production thresholds.
 
-```text
-45, 160, 72, 100, 300, 301, 55
-```
+## Terminal commands
 
-| Day | Ping | Result |
-| --- | --- | --- |
-| 1 | 45 ms | Healthy |
-| 2 | 160 ms | Minor lag; continue to the next day |
-| 3 | 72 ms | Healthy |
-| 4 | 100 ms | Healthy; demonstrates the upper healthy boundary |
-| 5 | 300 ms | Minor lag; demonstrates the upper lag boundary |
-| 6 | 301 ms | Critical failure; stop monitoring |
-| 7 | — | Not evaluated because day 6 stopped the loop |
+    python main.py
+    python main.py --scenario busy --days 14 --seed 42
+    python main.py --demo
+    python main.py --demo-lag
+    python main.py --scenario unstable --log-file logs/my_run.txt --history-dir logs/history
+    python main.py --help
 
-The summary contains **6 checked days, 3 healthy days, 2 lag days, 1 critical failure, and 1 unevaluated day**. The healthy check rate is `3 / 6 × 100 = 50%`.
+Default: 7 simulated days on a stable network. Days must be positive; the dashboard supports 1–365 and demos support at most 7. Use a seed only with random mode. On Windows, **run_demo.bat** launches the critical-failure terminal demo.
 
-See [the complete demo output](examples/demo_output.txt). The healthy check rate counts only performed simulated checks; it is not a measured uptime percentage over real time.
+## Logs and history
 
-## How the program works
+The latest terminal report is written to logs/server_uptime.log by default. Every completed terminal or dashboard run also gets a unique timestamped JSON record and text report under logs/history/. The GUI uses the project folder; terminal paths are relative to your working directory.
 
-1. Read and validate the command-line options.
-2. Start a `for` loop over the requested days.
-3. Generate a random ping value, or read the next fixed demo value.
-4. Log a critical value and `break` if it exceeds 300 ms.
-5. Log a minor lag and `continue` if it exceeds 100 ms.
-6. Record a healthy value when neither condition applies.
-7. Print the final summary and save the report to a text file.
+History remains on your computer and is excluded from Git. The selected latest-log file can be replaced; historical records are preserved separately. The history viewer shows the latest 100 valid records. **Export log** saves the current GUI report to a chosen text file.
 
-The failure check comes first so that a ping above 300 ms cannot be classified as minor lag.
+## Expected demo results
+
+| Demo | Checked | Healthy | Minor lag | Failures | Unevaluated |
+| --- | --- | --- | --- | --- | --- |
+| Critical failure | 6 | 3 | 2 | 1 | 1 |
+| Lag escalation | 4 | 1 | 2 | 1 | 3 |
+
+Generated samples: [critical failure](examples/demo_output.txt) and [lag escalation](examples/lag_escalation_output.txt).
+
+**Healthy check rate = healthy days ÷ checked days × 100.** This is a simulation statistic, not measured service uptime. The project makes no network requests, does not wait real days, and does not use a machine-learning model.
+
+## Core algorithm
+
+    FOR each requested day:
+        generate a ping from the chosen scenario
+        IF ping > 300:
+            record critical failure
+            BREAK
+        IF ping > 100:
+            increase consecutive lag streak
+            IF streak == 3:
+                record escalated failure
+                BREAK
+            record minor lag
+            CONTINUE
+        reset lag streak
+        record healthy day
+    summarize and save the run
+
+Continue skips healthy-day processing. Break exits the monitoring loop. The summary and file-saving code after the loop still execute.
 
 ## Project files
 
-```text
-server-uptime-monitoring-log/
-├── main.py                  # Simulation and command-line interface
-├── README.md                # Setup, usage, and explanation
-├── docs/
-│   └── PROJECT_REPORT.md    # Submission report and viva preparation
-├── examples/
-│   └── demo_output.txt      # Reproducible demonstration output
-└── tests/                   # Automated behaviour checks
-```
+| File | Purpose |
+| --- | --- |
+| main.py | Shared simulation, text reporting, history and terminal CLI. |
+| gui.py | Tkinter dashboard, charts and history viewer. |
+| run_gui.bat | Windows desktop launcher. |
+| run_demo.bat | Windows terminal-demo launcher. |
+| docs/PROJECT_REPORT.md | Submission report and viva preparation. |
+| examples/ | Generated demo logs. |
+| tests/ | Simulation, CLI, persistence and desktop tests. |
+| .github/workflows/python-tests.yml | Automated Linux and Windows checks. |
 
-The `logs/` folder is generated when the program runs. Generated logs and Python cache files are excluded from Git.
+## Tests
 
-## Run the tests
+    python -m unittest discover -s tests -v
 
-```bash
-python -m unittest discover -s tests -v
-```
+Desktop tests are opt-in and require a graphical environment. In Windows PowerShell:
 
-Tests check the status boundaries, the behaviour after lag spikes, immediate stopping on failure, and reproducible random runs.
+    $env:RUN_GUI_TESTS = "1"
+    python -m unittest discover -s tests -v
 
-## GitHub repository
+Tests cover boundaries, lazy stopping, streak reset and escalation, scenario ranges, seeded repeatability, history, terminal output and desktop integration. GitHub Actions checks core behaviour on Python 3.10, 3.12 and 3.13, plus desktop integration on Windows with Python 3.12.
+
+## GitHub
 
 Repository: [k-m-rahaman/Server_Uptime_Monitoring_Log](https://github.com/k-m-rahaman/Server_Uptime_Monitoring_Log)
 
-To download and run a fresh copy:
+    git clone https://github.com/k-m-rahaman/Server_Uptime_Monitoring_Log.git
+    cd Server_Uptime_Monitoring_Log
+    python gui.py
 
-```bash
-git clone https://github.com/k-m-rahaman/Server_Uptime_Monitoring_Log.git
-cd Server_Uptime_Monitoring_Log
-python main.py --demo
-```
-
-After making your own changes, review, commit, and push:
-
-```bash
-git status
-git add .
-git commit -m "Update monitoring project"
-git push origin main
-```
-
-Authenticate using GitHub's normal sign-in flow when prompted. Do not put passwords or access tokens in source files. GitHub Actions runs the tests and classroom demo on Python 3.10, 3.12, and 3.13 for pushes and pull requests.
-
-## Presentation checklist
-
-1. Introduce the objective and the three ping categories.
-2. Run `python main.py --demo` and explain each status.
-3. Point to the `for`, `continue`, and `break` statements in `main.py`.
-4. Explain why the seventh demo reading is never processed.
-5. Show the saved log and run the tests.
-6. Run `python main.py --days 10` to show random simulation.
-
-For the algorithm, limitations, and viva questions, read [the project report](docs/PROJECT_REPORT.md).
+Read [the project report](docs/PROJECT_REPORT.md) for submission notes and viva questions. Add your student details to your submission copy.

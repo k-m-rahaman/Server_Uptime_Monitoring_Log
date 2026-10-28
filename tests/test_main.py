@@ -2,6 +2,7 @@
 
 import contextlib
 import io
+import json
 import random
 import subprocess
 import sys
@@ -9,7 +10,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from main import format_report, monitor_server
+from main import format_report, monitor_server, save_run_history
 
 
 class MonitorServerTests(unittest.TestCase):
@@ -140,6 +141,72 @@ class MonitorServerTests(unittest.TestCase):
         self.assertIn("MINOR LAG", text)
         self.assertIn("50.00%", text)
 
+    def test_three_consecutive_lag_spikes_escalate_and_do_not_read_next_day(self):
+        def readings():
+            yield from [65, 180, 240, 280]
+            self.fail("An escalated failure must stop the for loop.")
+
+        report = monitor_server(days=7, ping_values=readings())
+        self.assertEqual(len(report["entries"]), 4)
+        self.assertEqual(report["entries"][-1]["status"], "ESCALATED FAILURE")
+        self.assertEqual([e["action"] for e in report["entries"]],
+                         ["record", "continue", "continue", "break"])
+        self.assertEqual((report["healthy_days"], report["lag_days"], report["critical_days"]), (1, 2, 1))
+        self.assertEqual(report["failure_type"], "lag_escalation")
+        self.assertEqual(report["max_lag_streak"], 3)
+        self.assertTrue(report["stopped_early"])
+        self.assertIn("3 consecutive", report["stop_reason"])
+
+    def test_healthy_day_resets_the_lag_streak(self):
+        report = monitor_server(days=6, ping_values=[180, 240, 70, 180, 240, 80])
+        self.assertEqual([e["lag_streak"] for e in report["entries"]], [1, 2, 0, 1, 2, 0])
+        self.assertEqual(report["max_lag_streak"], 2)
+        self.assertEqual(report["critical_days"], 0)
+        self.assertIsNone(report["failure_type"])
+
+    def test_critical_ping_takes_priority_over_an_existing_lag_streak(self):
+        report = monitor_server(days=7, ping_values=[180, 240, 301])
+        self.assertEqual(report["entries"][-1]["status"], "CRITICAL FAILURE")
+        self.assertEqual(report["failure_type"], "critical_ping")
+        self.assertEqual(report["max_lag_streak"], 2)
+        self.assertIn("301 ms", report["stop_reason"])
+
+    def test_each_scenario_generates_readings_within_its_range(self):
+        expected_ranges = {"stable": (20, 140), "busy": (60, 320), "unstable": (80, 450)}
+        for scenario, (low, high) in expected_ranges.items():
+            for seed in [0, 1, 7, 42, 123]:
+                with self.subTest(scenario=scenario, seed=seed):
+                    report = monitor_server(days=10, seed=seed, scenario=scenario)
+                    self.assertTrue(all(low <= e["ping_ms"] <= high for e in report["entries"]))
+                    self.assertEqual(report["scenario"], scenario)
+
+    def test_unknown_scenario_is_rejected(self):
+        with self.assertRaises(ValueError):
+            monitor_server(scenario="missing")
+
+    def test_failure_on_final_day_is_counted_without_claiming_days_were_skipped(self):
+        report = monitor_server(days=3, ping_values=[150, 200, 250])
+        self.assertFalse(report["stopped_early"])
+        self.assertEqual(report["critical_days"], 1)
+        self.assertEqual(report["failure_type"], "lag_escalation")
+
+
+class HistoryTests(unittest.TestCase):
+    def test_each_saved_run_has_a_separate_complete_record_and_readable_log(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report = monitor_server(days=2, ping_values=[45, 180])
+            first = save_run_history(report, directory)
+            second = save_run_history(report, directory)
+            self.assertNotEqual(first, second)
+            self.assertTrue(first.exists())
+            self.assertEqual(len(list(Path(directory).glob("*.json"))), 2)
+            for path in [first, second]:
+                record = json.loads(path.read_text(encoding="utf-8"))
+                self.assertEqual(record["entries"], report["entries"])
+                self.assertIn("created_at", record)
+                self.assertEqual(path.with_suffix(".txt").read_text(encoding="utf-8"),
+                                 format_report(report) + "\n")
+
 
 class CommandLineTests(unittest.TestCase):
     script = Path(__file__).resolve().parents[1] / "main.py"
@@ -182,6 +249,31 @@ class CommandLineTests(unittest.TestCase):
                     self.assertEqual(result.stdout, "")
                     self.assertFalse(log_file.exists())
                     self.assertFalse(log_file.parent.exists())
+
+    def test_lag_demo_saves_its_failure_reason_and_a_history_record(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run(
+                [sys.executable, str(self.script), "--demo-lag"], cwd=directory,
+                capture_output=True, text=True, timeout=10,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("ESCALATED FAILURE", result.stdout)
+            self.assertNotIn("Day 005", result.stdout)
+            records = list((Path(directory) / "logs" / "history").glob("*.json"))
+            self.assertEqual(len(records), 1)
+            record = json.loads(records[0].read_text())
+            self.assertEqual(record["scenario"], "busy")
+            self.assertEqual(record["failure_type"], "lag_escalation")
+
+    def test_seed_cannot_be_combined_with_a_fixed_demo(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run(
+                [sys.executable, str(self.script), "--demo-lag", "--seed", "42"],
+                cwd=directory, capture_output=True, text=True, timeout=10,
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("--seed is for random mode", result.stderr)
+            self.assertFalse((Path(directory) / "logs").exists())
 
 
 if __name__ == "__main__":

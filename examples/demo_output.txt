@@ -1,23 +1,31 @@
 SERVER UPTIME MONITORING LOG
 ====================================================================
 Simulation only: one generated ping per day; no real server contacted.
+Scenario: Unstable Network | Readings: fixed demo
 Healthy: 0-100 ms | Minor lag: 101-300 ms | Critical: above 300 ms
+Extra failure rule: 3 consecutive lag spikes trigger escalation.
 --------------------------------------------------------------------
-Day 001 |  45 ms | HEALTHY          | server healthy
-Day 002 | 160 ms | MINOR LAG        | continue: skip healthy processing
-Day 003 |  72 ms | HEALTHY          | server healthy
-Day 004 | 100 ms | HEALTHY          | server healthy
-Day 005 | 300 ms | MINOR LAG        | continue: skip healthy processing
-Day 006 | 301 ms | CRITICAL FAILURE | break: stop monitoring
+Day 001 |  45 ms | HEALTHY           | server healthy | lag streak: 0
+Day 002 | 160 ms | MINOR LAG         | continue: skip healthy processing | lag streak: 1
+Day 003 |  72 ms | HEALTHY           | server healthy | lag streak: 0
+Day 004 | 100 ms | HEALTHY           | server healthy | lag streak: 0
+Day 005 | 300 ms | MINOR LAG         | continue: skip healthy processing | lag streak: 1
+Day 006 | 301 ms | CRITICAL FAILURE  | break: stop monitoring | lag streak: 0
 --------------------------------------------------------------------
 SUMMARY
 Requested days       : 7
 Days checked         : 6
 Healthy days         : 3
 Minor lag days       : 2
-Critical failures    : 1
+Failures             : 1
 Days not evaluated   : 1
 Healthy check rate   : 50.00%
+Longest lag streak   : 1
 Healthy check rate = healthy days / checked days x 100.
-Monitoring halted on a critical failure.
+
+CHECK DISTRIBUTION (# is approximately one check; capped at 25)
+Healthy    ###                       3
+Minor lag  ##                        2
+Failure    #                         1
+Stop reason: Day 6: ping 301 ms exceeded the 300 ms critical threshold.
 This sample-based simulation does not measure real server uptime.

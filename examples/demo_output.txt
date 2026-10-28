@@ -1,0 +1,23 @@
+SERVER UPTIME MONITORING LOG
+====================================================================
+Simulation only: one generated ping per day; no real server contacted.
+Healthy: 0-100 ms | Minor lag: 101-300 ms | Critical: above 300 ms
+--------------------------------------------------------------------
+Day 001 |  45 ms | HEALTHY          | server healthy
+Day 002 | 160 ms | MINOR LAG        | continue: skip healthy processing
+Day 003 |  72 ms | HEALTHY          | server healthy
+Day 004 | 100 ms | HEALTHY          | server healthy
+Day 005 | 300 ms | MINOR LAG        | continue: skip healthy processing
+Day 006 | 301 ms | CRITICAL FAILURE | break: stop monitoring
+--------------------------------------------------------------------
+SUMMARY
+Requested days       : 7
+Days checked         : 6
+Healthy days         : 3
+Minor lag days       : 2
+Critical failures    : 1
+Days not evaluated   : 1
+Healthy check rate   : 50.00%
+Healthy check rate = healthy days / checked days x 100.
+Monitoring halted on a critical failure.
+This sample-based simulation does not measure real server uptime.

@@ -77,11 +77,11 @@ Each entry includes its day, ping, status, lag streak, action, explanation and h
 2. Initialize entries, status counts and the consecutive-lag streak.
 3. Iterate over requested days with a for loop.
 4. Obtain one random ping or fixed demonstration reading.
-5. If the ping exceeds the critical limit, record a critical failure, yield the entry and exit with break.
+5. If the ping exceeds the critical limit, record a critical failure and exit with break; present the entry afterward.
 6. If the ping exceeds the healthy limit, increase the streak:
-   - If the streak reaches the configured lag limit, record escalation, yield the entry and break.
-   - Otherwise record minor lag, yield the entry and continue.
-7. Otherwise reset the streak, record a healthy day and yield its entry.
+   - If the streak reaches the configured lag limit, record escalation and break; present the entry afterward.
+   - Otherwise record minor lag and continue; present the entry before obtaining the next reading.
+7. Otherwise reset the streak, record a healthy day and present its entry before another reading is obtained.
 8. Summarize only the checks actually performed.
 9. Save the completed run and provide text or CSV output when requested.
 

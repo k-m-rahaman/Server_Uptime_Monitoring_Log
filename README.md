@@ -13,6 +13,13 @@ A Python mini project that simulates daily server health using **for loops, rand
 | 3 | Koyel Basu |
 | 4 | Suraiya Yeasmin |
 
+## Submission documentation
+
+The four-page project report includes the abstract, objectives, algorithm flowchart, graphical demo results, validation, conclusion and future scope.
+
+- [PDF report for printing and submission](docs/PROJECT_DOCUMENTATION.pdf)
+- [Editable Word report](docs/PROJECT_DOCUMENTATION.docx)
+
 ## Objective
 
 Generate simulated daily ping readings, use continue to bypass healthy-day processing after minor lag, and use break to stop monitoring when a failure rule is met. The output is a daily log with a clear explanation of server health and the exact reason monitoring stopped.
